@@ -13,8 +13,6 @@ logger = logging.getLogger(__name__)
 TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
 ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
 
-anthropic = Anthropic(api_key=ANTHROPIC_API_KEY)
-
 COLLECTING = 1
 
 SYSTEM_PROMPT = """Ты — профессиональный редактор новостных дайджестов для бизнес-канала CN Bridge (поставки из Китая).
@@ -59,6 +57,8 @@ SYSTEM_PROMPT = """Ты — профессиональный редактор н
 - Тема в заголовке #Дайджест должна отражать суть присланных новостей
 - Не добавляй ничего лишнего сверх формата"""
 
+client = Anthropic(api_key=ANTHROPIC_API_KEY)
+
 
 def get_keyboard():
     return ReplyKeyboardMarkup(
@@ -76,8 +76,7 @@ def get_done_keyboard():
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     await update.message.reply_text(
-        "👋 Привет! Я бот для создания дайджестов CN Bridge.\n\n"
-        "Нажми кнопку ниже, чтобы начать.",
+        "👋 Привет! Я бот для создания дайджестов CN Bridge.\n\nНажми кнопку ниже, чтобы начать.",
         reply_markup=get_keyboard()
     )
 
@@ -85,8 +84,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def start_digest(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["news"] = []
     await update.message.reply_text(
-        "📨 Пришлите до 10 сообщений с новостями — каждое отдельно.\n\n"
-        "Когда закончите — нажмите «Готово».",
+        "📨 Пришлите до 10 сообщений с новостями — каждое отдельно.\n\nКогда закончите — нажмите «Готово».",
         reply_markup=get_done_keyboard()
     )
     return COLLECTING
@@ -97,10 +95,7 @@ async def collect_news(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text == "❌ Отмена":
         context.user_data.clear()
-        await update.message.reply_text(
-            "Отменено. Можете начать заново.",
-            reply_markup=get_keyboard()
-        )
+        await update.message.reply_text("Отменено. Можете начать заново.", reply_markup=get_keyboard())
         return ConversationHandler.END
 
     if text == "✅ Готово — создать дайджест":
@@ -141,13 +136,11 @@ async def generate_digest(update: Update, context: ContextTypes.DEFAULT_TYPE):
     news = context.user_data.get("news", [])
     await update.message.reply_text("⏳ Генерирую дайджест, подождите...")
 
-    user_content = "\n\n".join(
-        f"Новость {i+1}:\n{item}" for i, item in enumerate(news)
-    )
+    user_content = "\n\n".join(f"Новость {i+1}:\n{item}" for i, item in enumerate(news))
 
     try:
-        message = anthropic.messages.create(
-            model="claude-opus-4-5",
+        message = client.messages.create(
+            model="claude-sonnet-4-5",
             max_tokens=1500,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_content}]
